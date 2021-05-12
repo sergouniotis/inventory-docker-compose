@@ -1,0 +1,42 @@
+version: '3.6'
+services:
+  inventory-db:
+    container_name: inventory-db
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_PASSWORD=admin1234!
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    networks:
+      inv-network:
+        aliases:
+          - invdb
+    ports:
+      - 5432:5432
+    command: ["postgres", "-c", "max_prepared_transactions=100", "-c", "shared_preload_libraries=pg_stat_statements,pg_trgm", "-c", "pg_stat_statements.max=10000", "-c", "pg_stat_statements.track=all", "-c", "autovacuum=on", "-c", "track_counts=on", "-c", "log_autovacuum_min_duration=250ms", "-c", "autovacuum_vacuum_scale_factor=0.2", "-c", "autovacuum_vacuum_threshold=50", "-c", "autovacuum_analyze_scale_factor=0.1", "-c", "autovacuum_analyze_threshold=50", "-c", "autovacuum_vacuum_cost_limit=-1", "-c", "autovacuum_vacuum_cost_delay=20ms", "-c", "vacuum_cost_page_hit=1", "-c", "vacuum_cost_page_miss=10", "-c" ,"vacuum_cost_page_dirty=20"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ${HOME}/projects/personal/app/backend/init_scripts/:/docker-entrypoint-initdb.d      
+  inventory-service:
+    container_name: inventory-service
+    image: com.sergouniotis/inventory-service-app:1.0.0
+    environment:
+      - JAVA_OPTS=-Xmx1g -agentlib:jdwp=transport=dt_socket,address=*:8787,server=y,suspend=n -Duser.timezone=GMT -Djava.security.egd=file:/dev/./urandom
+      - POSTGRESQL_DATASOURCE=BPRDatasource
+      - POSTGRESQL_USER=inventory
+      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_SERVICE_HOST=inventory-db
+      - POSTGRESQL_SERVICE_PORT=5432
+      - POSTGRESQL_DATABASE=inventory
+    ports:
+      - 8080:8080
+      - 8787:8787
+      - 9990:9990
+    networks:
+      inv-network:
+        aliases:
+          - bpr      
+networks:
+  inv-network:
+volumes:
+  pgdata:
+    driver: local
